@@ -1,5 +1,9 @@
 var express = require('express');
 var router = express.Router();
+const md5 = require('blueimp-md5')
+
+const UserModel = require('../db/models').userModel
+const filter = { password: 0, __v: 0 }
 
 /* GET home page. */
 router.get('/', function(req, res, next) {
@@ -20,25 +24,47 @@ router.get('/', function(req, res, next) {
   2. 处理
   3. 返回响应数据
  */
-router.post('/register', function(req, res) {
-  // 1. 获取请求参数
+
+// 注册
+router.post('/register', (req, res) => {
+  const { username, password, type } = req.body
+  // 处理
+  UserModel.findOne({ username }, (error, data) => {
+    if(data) {
+      res.send({
+        code: 1,
+        msg: '此用户名字已存在'
+      })
+    } else {
+      new UserModel({ username, type, password: md5(password) }).save((error, data) => {
+        res.cookie('userid', data._id, { maxAge: 1000 * 60 * 60 * 24 } )
+        const user = { username, type, _id: data._id }
+        res.send({ code: 0, data: user })
+      })
+    }
+  })
+})
+
+// 登录
+router.post('/login', (req, res) => {
   const { username, password } = req.body
-  // 2. 处理
-  if(username === 'admin') {
-    // 失败响应
-    res.send({
-      code: 1, msg: '此用户已存在'
-    })
-  } else {
-    // 成功响应
-    res.send({
-      code: 0,
-      data: {
-        _id: 'abc',
-        username
-      }
-    })
-  }
-});
+
+  UserModel.findOne({ username, password: md5(password) }, filter, (error, user) => {
+    if(user) {
+      res.cookie('userid', user._id, { maxAge: 1000 * 60 * 60 * 24 })
+      res.send({ code: 0, msg: '登陆成功', data: user })
+    } else {
+      UserModel.findOne({ username }, (error, user) => {
+        if(user) {
+          res.send({ code: 1, msg: '用户名或者密码错误' })
+        } else {
+          res.send({ code: 1, msg: '用户不存在' })
+        }
+      })
+    }
+  })
+
+})
+
 
 module.exports = router;
