@@ -66,5 +66,27 @@ router.post('/login', (req, res) => {
 
 })
 
+//  更新用户信息
+router.post('/update', (req, res) => {
+  // 从 cookies 得到 userid
+  const userid = req.cookies.userid
+  if(!userid) {
+    return res.send({ code: 1, msg: '请先登录' })
+  }
+  // 根据 userid 更新
+  //得到提交的用户信息
+  const user = req.body
+  UserModel.findByIdAndUpdate({_id: userid}, user, (error, oldUser) => {
+    if(!oldUser) {
+      // 通知浏览器删除 userid cookie, 再返回提示信息
+      res.clearCookie('userid')
+      return res.send({ code: 1, msg: '请先登录' })
+    }
+    const { _id, username, type } = oldUser
+    const data = Object.assign(user, {_id, username, type})
+    res.send({ code: 0, data })
+  })
+})
+
 
 module.exports = router;
